@@ -1,0 +1,12 @@
+{
+    "name": "Yureruyo",
+    "dockerFile": "../Dockerfile",
+    "appPort": 8000,
+    "extensions": [
+      "ms-python.python",
+      "oderwat.indent-rainbow",
+    ],
+    "forwardPorts": [
+      8000
+    ],
+  }
