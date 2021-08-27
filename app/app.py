@@ -63,13 +63,7 @@ class Janken():
             if command["text"].split()[0].isdecimal():
                 self.maximum_player = int(command["text"].split()[0])
 
-        for i in range(self.maximum_player):
-            self.players.append(
-                {
-                    "user_id": None,
-                    "hand": None,
-                }
-            )
+        self.init_player()
         message = say({
             "blocks": self.blocks + self.get_progress_block()
         })
@@ -77,7 +71,15 @@ class Janken():
         self.ts = message["ts"]
         self.client = client
 
-
+    def init_player(self):
+        self.players = []
+        for i in range(self.maximum_player):
+            self.players.append(
+                {
+                    "user_id": None,
+                    "hand": None,
+                }
+            )
     def update(self, user_id, hand):
         for player in self.players:
             if player["user_id"] is None:
@@ -103,6 +105,15 @@ class Janken():
         if hand == 2:
             return ":raised_back_of_hand:"
 
+    def retry(self):
+        self.init_player()
+        self.current_player = 0
+        self.client.chat_update(
+            channel = self.channel_id,
+            ts = self.ts,
+            blocks = self.blocks + self.get_progress_block()
+        )
+    
     def finish(self):
         blocks = []
         for player in self.players:
@@ -115,6 +126,23 @@ class Janken():
                         }
                 }
             )
+        blocks.append(
+            {
+                "type": "actions",
+                "elements": [
+                    {
+                        "type": "button",
+                        "text": {
+                            "type": "plain_text",
+                            "text": "再戦:manji:",
+                            "emoji": True
+                        },
+                        "value": "retry",
+                        "action_id": "button_retry"
+                    }
+                ]
+            }
+        )
         self.client.chat_update(
             channel = self.channel_id,
             ts = self.ts,
@@ -159,6 +187,11 @@ class JankenManager():
         for janken in self.jankens:
             if janken.channel_id == channel_id and janken.ts == ts:
                 janken.update(user_id, hand)
+    
+    def retry_janken(self, channel_id, ts, user_id):
+        for janken in self.jankens:
+            if janken.channel_id == channel_id and janken.ts == ts:
+                janken.retry()
 
 jm = JankenManager(app.client)
 
@@ -194,6 +227,14 @@ def handle_some_action(ack, body):
     ts = body["container"]["message_ts"]
     hand = 2
     jm.update_janken(channel_id, ts, user_id, hand)
+
+@app.action("button_retry")
+def handle_some_action(ack, body):
+    ack()
+    user_id = body["user"]["id"]
+    channel_id = body["container"]["channel_id"]
+    ts = body["container"]["message_ts"]
+    jm.retry_janken(channel_id, ts, user_id, )
 
 
 # アプリを起動します
