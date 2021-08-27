@@ -106,6 +106,11 @@ class Janken():
             return ":raised_back_of_hand:"
 
     def retry(self):
+        self.client.chat_postMessage(
+            channel=self.channel_id,
+            thread_ts=self.ts,
+            blocks=self.get_result_block(),
+        )
         self.init_player()
         self.current_player = 0
         self.client.chat_update(
@@ -116,16 +121,7 @@ class Janken():
     
     def finish(self):
         blocks = []
-        for player in self.players:
-            blocks.append(
-                {
-                        "type": "section",
-                        "text": {
-                            "type": "mrkdwn",
-                            "text": "<@" + player["user_id"] + "> " + self.get_hand_as_string(player["hand"]),
-                        }
-                }
-            )
+        blocks += (self.get_result_block())
         blocks.append(
             {
                 "type": "actions",
@@ -143,11 +139,26 @@ class Janken():
                 ]
             }
         )
+        print(blocks)
         self.client.chat_update(
             channel = self.channel_id,
             ts = self.ts,
             blocks = blocks
         )
+    
+    def get_result_block(self):
+        blocks = []
+        for player in self.players:
+            blocks.append(
+                {
+                        "type": "section",
+                        "text": {
+                            "type": "mrkdwn",
+                            "text": "<@" + player["user_id"] + "> " + self.get_hand_as_string(player["hand"]),
+                        }
+                }
+            )
+        return blocks
     
     def get_progress_block(self):
         blocks = []
