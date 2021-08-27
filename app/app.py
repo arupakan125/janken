@@ -6,56 +6,7 @@ from slack_bolt.adapter.socket_mode import SocketModeHandler
 app = App(token=os.environ.get("SLACK_BOT_TOKEN"))
 
 class Janken():
-    def __init__(self, client, channel_id, ts):
-        self.channel_id = channel_id
-        self.ts = ts
-        self.players = []
-        self.client = client
-    def update(self, user_id, hand):
-        if len(self.players) == 0:
-            self.players.append({"user_id": user_id, "hand": hand})
-            self.client.chat_update(
-                channel = self.channel_id,
-                ts = self.ts,
-                attachments = [{"pretext": "<@" + user_id + ">" + "さんが手を出しました"}],
-            )
-        else:
-            self.players.append({"user_id": user_id, "hand": hand})
-
-            diff = (self.players[0]["hand"] - self.players[1]["hand"] + 3) % 3
-            if diff == 0:
-                # あいこ
-                pass
-            if diff == 1:
-                # 先手の負け
-                pass
-            if diff == 2:
-                # 先手の勝ち
-                pass
-
-            self.client.chat_update(
-                channel = self.channel_id,
-                ts = self.ts,
-                blocks = [],
-                attachments = [{"pretext": "<@" + self.players[0]["user_id"] + "> " + self.get_hand_as_string(self.players[0]["hand"]) + " VS " + self.get_hand_as_string(self.players[1]["hand"]) + " <@" + self.players[1]["user_id"] + ">"}],
-            )
-    def get_hand_as_string(self, hand):
-        if hand == 0:
-            return ":punch:"
-        if hand == 1:
-            return ":v:"
-        if hand == 2:
-            return ":raised_back_of_hand:"
-
-class JankenManager():
-    def __init__(self, client):
-        self.jankens = []
-        self.client = client
-    
-    def initiate_janken(self, say):
-            message = say(
-            {
-                "blocks": [
+    blocks = [
                     {
                         "type": "section",
                         "text": {
@@ -100,29 +51,121 @@ class JankenManager():
                         ]
                     }
                 ]
-            }
-            )
-            self.jankens.append(
+
+    def __init__(self, client, say, command):
+        self.channel_id = None
+        self.ts = None
+        self.maximum_player = 2
+        self.current_player = 0
+        self.players = []
+        self.client = None
+        if command["text"].split()[0].isdecimal():
+            self.maximum_player = int(command["text"].split()[0])
+
+        for i in range(self.maximum_player):
+            self.players.append(
                 {
-                    "channel_id": message["channel"],
-                    "ts": message["ts"],
-                    "janken": Janken(self.client, message["channel"], message["ts"])
+                    "user_id": None,
+                    "hand": None,
                 }
             )
+        message = say({
+            "blocks": self.blocks + self.get_progress_block()
+        })
+        self.channel_id = message["channel"]
+        self.ts = message["ts"]
+        self.client = client
+
+
+    def update(self, user_id, hand):
+        for player in self.players:
+            if player["user_id"] is None:
+                player["user_id"] = user_id
+                player["hand"] = hand
+                self.current_player += 1
+                break
+
+        self.client.chat_update(
+            channel = self.channel_id,
+            ts = self.ts,
+            blocks = self.blocks + self.get_progress_block()
+        )
+
+        if self.current_player == self.maximum_player:
+            self.finish()
+
+    def get_hand_as_string(self, hand):
+        if hand == 0:
+            return ":punch:"
+        if hand == 1:
+            return ":v:"
+        if hand == 2:
+            return ":raised_back_of_hand:"
+
+    def finish(self):
+        blocks = []
+        for player in self.players:
+            blocks.append(
+                {
+                        "type": "section",
+                        "text": {
+                            "type": "mrkdwn",
+                            "text": "<@" + self.players[0]["user_id"] + "> " + self.get_hand_as_string(self.players[0]["hand"]),
+                        }
+                }
+            )
+        self.client.chat_update(
+            channel = self.channel_id,
+            ts = self.ts,
+            blocks = blocks
+        )
+    
+    def get_progress_block(self):
+        blocks = []
+        for player in self.players:
+            if player["user_id"] is None:
+                blocks.append(
+                    {
+                            "type": "section",
+                            "text": {
+                                "type": "mrkdwn",
+                                "text": "誰かの手を待っています",
+                            }
+                    }
+                )
+                continue
+            blocks.append(
+                    {
+                            "type": "section",
+                            "text": {
+                                "type": "mrkdwn",
+                                "text": "<@" + str(player["user_id"]) + ">" + "さんが手を出しました",
+                            }
+                    }
+                )
+        return blocks
+
+class JankenManager():
+
+    def __init__(self, client):
+        self.client = client
+        self.jankens = []
+    
+    def initiate_janken(self, say, command):
+            self.jankens.append(Janken(self.client, say, command))
 
     def update_janken(self, channel_id, ts, user_id, hand):
         for janken in self.jankens:
-            if janken["channel_id"] == channel_id and janken["ts"] == ts:
-                janken["janken"].update(user_id, hand)
-                print("im here")
+            if janken.channel_id == channel_id and janken.ts == ts:
+                janken.update(user_id, hand)
 
 jm = JankenManager(app.client)
 
 @app.command("/janken")
-def handle_some_command(ack, say, body):
+def handle_some_command(ack, say, body, command):
     ack()
-    print(body)
-    jm.initiate_janken(say)
+    print(command)
+    jm.initiate_janken(say, command)
 
 
 @app.action("button_gu")
