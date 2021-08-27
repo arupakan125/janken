@@ -59,8 +59,9 @@ class Janken():
         self.current_player = 0
         self.players = []
         self.client = None
-        if command["text"].split()[0].isdecimal():
-            self.maximum_player = int(command["text"].split()[0])
+        if command["text"]:
+            if command["text"].split()[0].isdecimal():
+                self.maximum_player = int(command["text"].split()[0])
 
         for i in range(self.maximum_player):
             self.players.append(
