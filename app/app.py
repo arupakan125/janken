@@ -165,7 +165,6 @@ jm = JankenManager(app.client)
 @app.command("/janken")
 def handle_some_command(ack, say, body, command):
     ack()
-    print(command)
     jm.initiate_janken(say, command)
 
 
