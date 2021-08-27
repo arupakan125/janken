@@ -110,7 +110,7 @@ class Janken():
                         "type": "section",
                         "text": {
                             "type": "mrkdwn",
-                            "text": "<@" + self.players[0]["user_id"] + "> " + self.get_hand_as_string(self.players[0]["hand"]),
+                            "text": "<@" + player["user_id"] + "> " + self.get_hand_as_string(player["hand"]),
                         }
                 }
             )
